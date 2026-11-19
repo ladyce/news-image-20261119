@@ -10,7 +10,9 @@ pins, 28 one-line briefs, and a date-check box naming the big stories
 left out because they were first reported before today. The image was
 drawn in this session with PIL and saved as entry.png; this program
 only copies those bytes, so both graded runs write identical bytes.
-No network, no randomness.
+Before reporting success it validates the output: PNG magic, a 1 MiB
+size cap, and an IHDR dimension guard (width and height at most
+1024 px each). No network, no randomness.
 """
 
 import os
@@ -38,6 +40,14 @@ def main() -> int:
         raise SystemExit("entry.png is not a PNG")
     if len(data) > MAX_BYTES:
         raise SystemExit("entry.png exceeds 1 MiB")
+    # Dimension guard: the IHDR chunk stores width and height as
+    # big-endian uint32 at bytes 16-24; refuse an oversized image.
+    if len(data) < 24:
+        raise SystemExit("entry.png is too short for an IHDR chunk")
+    width = int.from_bytes(data[16:20], "big")
+    height = int.from_bytes(data[20:24], "big")
+    if width > 1024 or height > 1024:
+        raise SystemExit("entry.png exceeds 1024 px in a dimension")
     return 0
 
 
